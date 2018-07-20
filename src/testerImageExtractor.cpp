@@ -46,7 +46,9 @@ string currentMapName;
 Mat currentImage,img;
 int numberOfUsedMaps=0;
 int lastLoadedMap=0;
-float mapDistances[10000];
+//float mapDistances[10000];
+vector<float> referenceDistances;
+vector<float> viewDistances;
 int numProcessedMaps = 0;
 int numMaps = 1;
 int numFeatures;
@@ -106,11 +108,12 @@ void distinctiveMatch(const Mat& descriptors1, const Mat& descriptors2, vector<D
 	delete descriptorMatcher;
 }
 
-int loadMaps(char* folder,char* prefix,vector<Mat> *images)
+int loadMaps(char* folder,char* prefix,vector<Mat> *images, vector<float> &tmpDist)
 {
 	numMaps = 0;
 	DIR *dir;
 	struct dirent *ent;
+    //vector<float> tmpDist = distances;
 	if ((dir = opendir (folder)) != NULL) {
 		/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL)
@@ -118,7 +121,11 @@ int loadMaps(char* folder,char* prefix,vector<Mat> *images)
 			char filter[strlen(prefix)+10];
 			sprintf(filter,"%s_",prefix);
 			if (strstr(ent->d_name,"yaml") != NULL){
-				if (strncmp(ent->d_name,filter,strlen(filter)) == 0)  mapDistances[numMaps++] = atof(&ent->d_name[strlen(filter)]);
+				if (strncmp(ent->d_name,filter,strlen(filter)) == 0) {
+                    //mapDistances[numMaps++] = atof(&ent->d_name[strlen(filter)]);
+                    tmpDist.push_back(atof(&ent->d_name[strlen(filter)]));
+                    numMaps++;
+                }
 			}
 		}
 		closedir (dir);
@@ -127,17 +134,28 @@ int loadMaps(char* folder,char* prefix,vector<Mat> *images)
 		fprintf(stderr,"Could not open folder %s with maps.\n",folder);
 	}
 
-	std::sort(mapDistances, mapDistances + numMaps, std::less<float>());
-	mapDistances[numMaps] = mapDistances[numMaps-1];
+    printf("Number of maps in dir: %i\n",numMaps);
+
+    std::sort(tmpDist.begin(), tmpDist.end(), std::less<float>());
+	//mapDistances[numMaps] = mapDistances[numMaps-1];
+    if( referenceDistances.size() != 0 ){
+        for (int i = 0; i < referenceDistances.size();) {
+            if( referenceDistances[i] != viewDistances[i] ){
+                referenceDistances.erase(referenceDistances.begin()+i);
+            } else{
+                i++;
+            }
+        }
+    }
 
 	/*preload all maps*/
 	imagesMap.clear();
 	char fileName[1000];
 
 	numFeatures=0;
-	for (int i = 0;i<numMaps;i++){
-		sprintf(fileName,"%s/%s_%.3f.yaml",folder,prefix,mapDistances[i]);
-		printf("Loading %s/%s_%.3f.yaml\n",folder,prefix,mapDistances[i]);
+	for (int i = 0;i<tmpDist.size();i++){
+		sprintf(fileName,"%s/%s_%.3f.yaml",folder,prefix,tmpDist[i]);
+		printf("Loading %s/%s_%.3f.yaml\n",folder,prefix,tmpDist[i]);
 		FileStorage fs(fileName, FileStorage::READ);
 		if(fs.isOpened())
 		{
@@ -149,7 +167,7 @@ int loadMaps(char* folder,char* prefix,vector<Mat> *images)
 
 	}
 	printf("A:%i\n",images->size());
-	return numMaps;
+	return tmpDist.size();
 }
 
 int main(int argc, char** argv)
@@ -157,8 +175,9 @@ int main(int argc, char** argv)
 	vector<Mat> viewImages;
 	vector<Mat> referenceImages;
 
-	loadMaps(argv[1],argv[2],&referenceImages);
-	loadMaps(argv[1],argv[3],&viewImages);
+    loadMaps(argv[1],argv[3],&viewImages,viewDistances);
+	loadMaps(argv[1],argv[2],&referenceImages, referenceDistances);
+    //printf("wd %i rd %i \n",viewDistances.size(),referenceDistances.size());
 	printf("A:%i\n",referenceImages.size());
 	srand (time(NULL));
 
@@ -391,6 +410,6 @@ int main(int argc, char** argv)
 				//locations[1]++;
 			}
 		}
-	}while (key != 27 && locations[0] < numMaps);
+	}while (key != 27 && locations[0] < viewDistances.size());
 	return 0;
 }
