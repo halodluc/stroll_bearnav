@@ -144,6 +144,7 @@ int loadMaps()
 			feedback.distance = mapDistances[i];
 			feedback.numFeatures=numFeatures;
 			feedback.mapIndex=i;
+			feedback.mapLoaded=false;
 			server->publishFeedback(feedback);
 		}
 
@@ -155,6 +156,7 @@ int loadMaps()
 	feedback.distance = mapDistances[numMaps-1];
 	feedback.numFeatures=numFeatures;
 	feedback.mapIndex=numMaps;
+	feedback.mapLoaded=true;
 	server->publishFeedback(feedback);
 	return numMaps;
 }
@@ -175,6 +177,7 @@ void loadMap(int index)
 	feedback.distance = currentDistance;
 	feedback.numFeatures=keypoints_1.size();
 	feedback.mapIndex=index;
+	feedback.mapLoaded=true;
 	/* feedback returns name of loaded map, number of features in it and index */
 	server->publishFeedback(feedback);
 }
@@ -263,7 +266,7 @@ void distCallback(const std_msgs::Float32::ConstPtr& msg)
 		if (mindex > -1 && mindex != lastLoadedMap){
 			ROS_INFO("Current distance is %.3f Closest map found at %i, last was %i",distanceT,mindex,lastLoadedMap);
 			loadMap(mindex);
-//			ROS_INFO("Sending a map %i features with %i descriptors",(int)keypoints_1.size(),descriptors_1.rows);
+			//			ROS_INFO("Sending a map %i features with %i descriptors",(int)keypoints_1.size(),descriptors_1.rows);
 
 			int stcs[keypoints_1.size()];
 			for(int i = 0; i<keypoints_1.size();i++){
